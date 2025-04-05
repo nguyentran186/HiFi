@@ -59,8 +59,7 @@ def dust3r_depth_generator(folder_path, anchor_name, n, save_path='./depth_maps'
     # Run global aligner
     scene = global_aligner(output, device=device, mode=GlobalAlignerMode.PointCloudOptimizer)
     scene.compute_global_alignment(init="mst", niter=300, schedule='cosine', lr=0.01)
-    depth_path = os.path.join(save_path, "depth")
-    os.makedirs(depth_path, exist_ok=True)
+    os.makedirs(save_path, exist_ok=True)
 
     # Save depth map only for the anchor image
     for i in range(len(view1['img'])):
@@ -70,26 +69,15 @@ def dust3r_depth_generator(folder_path, anchor_name, n, save_path='./depth_maps'
             pts3d = pred1['pts3d'][i]
             true_shape = view1['true_shape'][i]
             depth = compute_depth_map(pts3d, true_shape)
-            depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
 
             anchor_name = anchor_name + folder_path.split('/')[-2]
-            depth_png_path = os.path.join(depth_path, f"dust3r_depth.png")
-            depth_npy_path = os.path.join(depth_path, f"dust3r_depth.npy")
-            cv2.imwrite(depth_png_path, depth_norm)
+            depth_npy_path = os.path.join(save_path, f"dust3r_depth.npy")
             np.save(depth_npy_path, depth)
+            
+            # depth_norm = cv2.normalize(depth, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+            # depth_png_path = os.path.join(save_path, f"dust3r_depth.png")
+            # cv2.imwrite(depth_png_path, depth_norm)
             break
     else:
         print("[WARNING] Anchor image not found in view1!")
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--folder', type=str, required=True, help='Path to image folder')
-    parser.add_argument('--anchor', type=str, default=None, help='Anchor image filename (e.g., 20220819_104221.png). If not set, a random one will be used.')
-    parser.add_argument('--n', type=int, required=True, help='Number of images to process including anchor')
-    parser.add_argument('--output', type=str, default='./depth_maps', help='Folder to save depth maps')
-    args = parser.parse_args()
-
-    process_folder(args.folder, args.anchor, args.n, save_path=args.output)
 
