@@ -11,7 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "
 from utils import load_camera_info, get_depth, masked_l1_depth_loss
 import matplotlib.pyplot as plt
 
-input_dim = 1
+input_dim = 9
 
 class DepthCorrectionMLP(nn.Module):
     def __init__(self, kernel_size=5):
@@ -59,7 +59,7 @@ def extract_patches(depth, kernel_size=5):
     return patches, H, W
 
 
-def train_mlp_on_depth(depth, target_depth, mask, mlp, optimizer, num_epochs=500, output_dir='output'):
+def train_mlp_on_depth(depth, target_depth, mask, mlp, optimizer, output_dir, num_epochs=1500):
     """
     Training loop for DepthCorrectionMLP with a progress bar and loss visualization. 
     """
@@ -104,8 +104,9 @@ def train_mlp_on_depth(depth, target_depth, mask, mlp, optimizer, num_epochs=500
     plt.grid(True)
 
     # Save the plot as a PNG image
+    output_dir = os.path.join(output_dir, 'visualize')
     os.makedirs(output_dir, exist_ok=True)
-    plt.savefig(os.path.join(output_dir, 'training_loss_1.png'))
+    plt.savefig(os.path.join(output_dir, 'training_loss.png'))
     plt.close()
 
     # Return the final adjusted depth
@@ -146,7 +147,7 @@ def world_coor_depth(
     original_mask = cv2.resize(original_mask, (depth.shape[1], depth.shape[0]), interpolation=cv2.INTER_NEAREST)
     
     kernel_large = np.ones((dilation_kernel_size, dilation_kernel_size), np.uint8)
-    kernel_small = np.ones((1, 1), np.uint8)
+    kernel_small = np.ones((20, 20), np.uint8)
     
     mask_inner = cv2.dilate(original_mask, kernel_small, iterations=1)
     mask_outer = cv2.dilate(original_mask, kernel_large, iterations=1)
@@ -154,7 +155,7 @@ def world_coor_depth(
     # Get target depth
     tgt_depth = get_depth(points3d, K, torch.tensor(anchor_info['c2w'], dtype=torch.float32, device=device), depth.shape)
     
-    adjusted_depth = train_mlp_on_depth(depth, tgt_depth, mask, mlp, optimizer)
+    adjusted_depth = train_mlp_on_depth(depth, tgt_depth, mask, mlp, optimizer, output_dir)
     adjusted_depth = adjusted_depth.detach().cpu().numpy()
     
     depth_npy_path = os.path.join(output_dir, "depth", "aligned_depth.npy")

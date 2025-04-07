@@ -1,1 +1,1 @@
-python depth_prepare.py --folder /home/nguyen/code/2D23D/SPIn-NeRF/spinnerf-dataset/1 --anchor 20220819_104425 --n_dust3r 5
+python depth_base_projection.py --folder /home/nguyen/code/2D23D/SPIn-NeRF/spinnerf-dataset/1 --anchor 20220819_104425 --skip_depthgen

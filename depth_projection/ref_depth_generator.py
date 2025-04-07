@@ -19,11 +19,12 @@ def compute_depth_map(pts3d, true_shape):
     depth_map = np.linalg.norm(pts3d.reshape(H, W, 3), axis=-1)
     return depth_map
 
-def dust3r_depth_generator(folder_path, anchor_name, n, save_path='./depth_maps', device='cuda'):
+def dust3r_depth_generator(folder_path, anchor_name, save_path='./depth_maps', device='cuda'):
     # Gather all image paths
     folder_path = os.path.join(folder_path, "images_4") 
     label_path = os.path.join(folder_path, "label")
     anchor_name = anchor_name + ".png"
+    n=5
 
     # Get images only from the label_path directory
     all_images = [f for f in os.listdir(label_path) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
