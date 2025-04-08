@@ -91,26 +91,47 @@ def compute_R_ts_T_ts(c2w_s, c2w_t):
     return R_ts, T_ts
 
 def project_points(image, K, R, T, depth_map):
-    """Project 2D image onto a new view using intrinsic and extrinsic parameters."""
     epsilon = 1e-6
     depth_map = np.where(depth_map == 0, epsilon, depth_map)
 
     height, width = image.shape[:2]
     u, v = np.meshgrid(np.arange(width), np.arange(height))
-    x_normalized = (u - K[0, 2]) / K[0, 0]
-    y_normalized = (v - K[1, 2]) / K[1, 1]
-    X_3D = np.stack((x_normalized * depth_map, y_normalized * depth_map, depth_map), axis=-1)
-    X_3D_flat = X_3D.reshape(-1, 3)
-    X_3D_transformed = (R @ X_3D_flat.T + T.reshape(3, 1)).T
-    X_projected = K @ X_3D_transformed.T
-    points_2D = X_projected[:2, :] / X_projected[2, :]
-    points_2D = points_2D.T
+    x_norm = (u - K[0, 2]) / K[0, 0]
+    y_norm = (v - K[1, 2]) / K[1, 1]
 
-    projected_image = np.zeros_like(image)
-    for i in range(points_2D.shape[0]):
-        x, y = int(points_2D[i, 0]), int(points_2D[i, 1])
-        if 0 <= x < width and 0 <= y < height:
-            projected_image[y, x] = image.flat[i * 3:(i * 3) + 3]
+    X = x_norm * depth_map
+    Y = y_norm * depth_map
+    Z = depth_map
+    XYZ = np.stack([X, Y, Z], axis=-1).reshape(-1, 3)
+
+    # Apply extrinsics
+    XYZ_cam = (R @ XYZ.T + T.reshape(3, 1)).T
+
+    # Project to 2D
+    XYZ_proj = (K @ XYZ_cam.T).T
+    x_proj = (XYZ_proj[:, 0] / XYZ_proj[:, 2]).astype(np.int32)
+    y_proj = (XYZ_proj[:, 1] / XYZ_proj[:, 2]).astype(np.int32)
+
+    # Filter valid pixels
+    valid = (x_proj >= 0) & (x_proj < width) & (y_proj >= 0) & (y_proj < height)
+    x_proj = x_proj[valid]
+    y_proj = y_proj[valid]
+    src_pixels = image.reshape(-1, 3)[valid]
+    z_vals = XYZ_cam[:, 2][valid]
+
+    # Z-buffer to keep nearest depth
+    indices = y_proj * width + x_proj
+    buffer = np.full(height * width, np.inf)
+    image_buffer = np.zeros((height * width, 3), dtype=image.dtype)
+
+    # Keep only closest points
+    for i in range(len(indices)):
+        idx = indices[i]
+        if z_vals[i] < buffer[idx]:
+            buffer[idx] = z_vals[i]
+            image_buffer[idx] = src_pixels[i]
+
+    projected_image = image_buffer.reshape(height, width, 3)
     return projected_image
 
 def dilate_mask(mask, kernel_size):
